@@ -1,0 +1,5 @@
+# fisierele din venv
+.venv/
+
+#fisierele pycache
+*.pyc
