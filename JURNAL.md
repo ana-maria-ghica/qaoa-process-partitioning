@@ -6,7 +6,7 @@ pe simulatorul Aer și pe QPU.
 **Detalii rulare QPU:**
 - Job ID: dbd7dt7i0auc7394s3lg
 - Backend: ibm_fez
-- Qubiți fizici: ...
+- Qubiți fizici: ...(? nu se mai stie)
 - Timp QPU consumat: 2 sec
 
 **Rezultate:**
@@ -25,6 +25,8 @@ pe simulatorul Aer și pe QPU.
 eroarea statistică, ce e transpilarea, cât de zgomotos e un QPU real.
 
 
+
+
 ## 2026-10-23 — Etapa 1: fundamente cuantice
 
 ### Ce am făcut
@@ -39,9 +41,7 @@ eroarea statistică, ce e transpilarea, cât de zgomotos e un QPU real.
 **Bell (din datele Etapei 0):**
 - simulator: ⟨Z0Z1⟩ = 1.0
 - QPU: ⟨Z0Z1⟩ = 0.862
-- ⟨Z0⟩ = ..., ⟨Z1⟩ = ... (completează cu ce ți-a dat)
-→ fiecare qubit e aleatoriu singur (⟨Z⟩ ≈ 0), dar împreună sunt corelați
-  (⟨ZZ⟩ ≈ 1). Informația e în relația dintre qubiți: asta e întrețeserea.
+
 
 **Interferență (1.000 de shot-uri, predicție P(0) = cos²(θ/2)):**
 - θ = 0: 1.000 × '0' (predicție 1)
@@ -73,19 +73,38 @@ muchii = numărul de muchii tăiate. Matricea rezultată e diagonală, iar pe
 diagonală e costul fiecărui bitstring. Energia unei stări = costul mediu
 al bitstring-urilor pe care le dă la măsurare.]
 
+
+## 2026-10-24 — Etapa 2: problema clasică
+
+### Ce am făcut
+- src/graphs.py: generatoare (inel, grilă, 3-regulat, aleatoriu, complet),
+  25 de instanțe (n = 6…14) salvate în data/instances.json, cu seed fix (42).
+- src/classical.py: cut_value, forță brută (Max-Cut și bisecție, toate
+  soluțiile optime), greedy cu restarturi (swap-uri la bisecție, mutări de
+  un nod la Max-Cut, 20 de restarturi), media și deviația standard a
+  costului pe toate împărțirile permise.
+- data/reference.csv: 50 de rânduri (25 de grafuri × 2 probleme).
+- Histograme ale costurilor bisecțiilor pentru [instanțele alese], în figures/.
+
+### Rezultate și observații
+- Greedy a găsit optimul pe [X] din 50 de rânduri. Ratează pe [instanțe],
+  pentru că [se blochează într-un optim local: niciun swap / nicio mutare
+  nu mai îmbunătățește, deși optimul e altundeva].
+- Grafurile complete: toate bisecțiile au același cost (n/2)², deci
+  num_optima = C(n, n/2) și deviația standard 0 (test de sanitate trecut).
+- Histograme: [ce ai observat; de exemplu cât de departe e optimul de medie
+  și cât de rar apare, pe fiecare tip de graf].
+- Numărul de soluții optime e mereu par: fiecare soluție vine cu complementul ei.
+
+### Decizii
+- Grila pentru n = 12: [2 × 6 sau 3 × 4] — [motivul].
+- Baseline-ul aleatoriu calculat exact (enumerare), nu prin eșantionare,
+  pentru că la n ≤ 14 enumerarea e instantanee.
+
 ### Capcane întâlnite
-- Ordinea Qiskit: qubitul 0 e caracterul din dreapta, atât în bitstring-uri,
-  cât și în etichetele SparsePauliOp ('ZIIZ' = Z0Z3).
-- Testele trebuie făcute pe bitstring-uri asimetrice: un palindrom
-  ('0110') nu prinde greșeala de ordine.
-- Construiesc Hamiltonianul cu from_sparse_list (indici expliciți),
-  nu cu etichete scrise de mână.
-
-### Note tehnice
-- qiskit_ibm_runtime.executor_sampler.Sampler funcționează și cu
-  AerSimulator → folosesc primitivul nou peste tot.
-- Estimator primește (circuit fără măsurare, observabilă) și întoarce ⟨H⟩;
-  Sampler primește circuit cu măsurare și întoarce bitstring-uri.
-
-### Întrebări deschise
-- [ce nu ți-e încă clar; dacă nu e nimic, șterge secțiunea]
+- Testele pe grafuri simetrice (inel, complet, triunghi) nu prind greșeala de
+  ordine a biților → test suplimentar pe un graf asimetric.
+- Valoarea inițială a optimului la minimizare: un număr fix (n) poate fi prea
+  mic (graful complet) → None.
+- Generatorul aleatoriu se creează o singură dată; altfel toate restarturile
+  pornesc din același punct.

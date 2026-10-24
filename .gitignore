@@ -3,3 +3,6 @@
 
 #fisierele pycache
 *.pyc
+
+# metadatele de instalare
+*.egg-info/
