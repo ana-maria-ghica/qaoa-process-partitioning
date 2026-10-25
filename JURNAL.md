@@ -108,3 +108,51 @@ al bitstring-urilor pe care le dă la măsurare.]
   mic (graful complet) → None.
 - Generatorul aleatoriu se creează o singură dată; altfel toate restarturile
   pornesc din același punct.
+
+
+
+## 2026-10-25 — Etapa 3: din graf în Hamiltonian
+
+### Ce am făcut
+- src/hamiltonians.py:
+  - max_cut_hamiltonian: energia = −tăietura (−0,5·I + 0,5·ZiZj pe muchie);
+  - bisection_hamiltonian: energia = tăietura + A·(ΣZi)²
+    (0,5·I − 0,5·ZiZj pe muchie, plus A·n·I și 2A·ZiZj pe fiecare pereche i<j);
+  - generate_penalty_A: A = (d_max + 1)/4;
+  - teste exhaustive (toate cele 2^n bitstring-uri, toate cele 25 de instanțe)
+    și verificarea stărilor de energie minimă ale lui H_B;
+  - count_zz_terms + tabelul results/hamiltonian_terms.csv.
+
+### Rezultate
+- Energiile ambilor Hamiltonieni coincid cu costul clasic pe toate
+  bitstring-urile tuturor instanțelor.
+- Stările de energie minimă ale lui H_B = exact bisecțiile optime din Etapa 2,
+  toate echilibrate.
+- Termeni ZZ: H_MC are câte unul pe muchie; H_B are n(n−1)/2 (toate perechile),
+  indiferent de graf. Raportul cel mai mare: [tip de graf, valoare],
+  raport 1 la [grafurile complete], pentru că [...].
+
+### Experiment: pragul penalizării A
+- ring_8 (prag teoretic 0,5): minimul rămâne echilibrat până la A = 0,05;
+  o împărțire neechilibrată „arc” taie tot 2 muchii, deci nu poate câștiga.
+- random_10 (prag teoretic 1,5): se strică la A = 0,15 (minim 6,6 = tăietura
+  6 a unei împărțiri 6+4 + penalizarea 0,6). Pragul real ≈ 0,25.
+- Pragul d_max/4 e suficient, nu necesar: garanție de cel mai rău caz,
+  de ~6× prea conservatoare pe random_10.
+
+### Concluzii pentru etapele următoare
+- Penalizarea face H_B dens: toate perechile de qubiți interacționează →
+  mult mai multe porți cu doi qubiți decât la Max-Cut (Î5).
+- A-ul folosit e mult peste cel necesar → penalizarea poate domina peisajul
+  QAOA; de testat ca extensie (A mai mic).
+- h = 0 la ambii Hamiltonieni → fiecare bitstring are aceeași energie ca
+  complementul lui.
+
+### Capcane întâlnite
+- to_sparse_list vs from_sparse_list (sensuri opuse).
+- Constanta penalizării (A·n) se adaugă o singură dată, nu pe fiecare pereche.
+- Semnele tăieturii diferă între Max-Cut (−T) și bisecție (+T).
+- Testul exhaustiv al lui H_B trebuie să includă bitstring-urile
+  neechilibrate, altfel penalizarea nu e testată deloc.
+- Matricea completă nu încape în memorie la 14 qubiți → matrice rară
+  (to_matrix(sparse=True)).

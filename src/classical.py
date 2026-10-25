@@ -1,7 +1,7 @@
 import random
 import numpy as np
 
-# implementare calcul taietura
+# implementare calcul taietura -------------------------
 def cut_value(graph, bitstring):
     cut = 0
 
@@ -18,7 +18,7 @@ def max_cut_bruteforce(graph):
     n = graph.number_of_nodes()
     binary_format = "0" + str(n) + "b"
 
-    best_value = 0
+    best_value = None
     bitstring_list = []
 
     # generez cele 2^n combinatii
@@ -26,7 +26,7 @@ def max_cut_bruteforce(graph):
         current_bitstring = format(i, binary_format)
         value = cut_value(graph, current_bitstring)
 
-        if value > best_value:
+        if best_value is None or value > best_value:
             best_value = value
             bitstring_list = [current_bitstring]
 
@@ -50,11 +50,12 @@ def bisection_bruteforce(graph):
         ones = current_bitstring.count("1")
 
         if zeros == n//2 or ones == n//2:
-            current_cut = cut_value(graph, current_bitstring)
-            if best_cut is None or current_cut < best_cut:
-                best_cut = current_cut
+            # verific daca taietura e mai buna decat ce aveam inainte
+            value = cut_value(graph, current_bitstring)
+            if best_cut is None or value < best_cut:
+                best_cut = value
                 bitstring_list = [current_bitstring]
-            elif current_cut == best_cut:
+            elif value == best_cut:
                 bitstring_list.append(current_bitstring)
 
     return best_cut, bitstring_list
@@ -214,6 +215,23 @@ def bisection_random_stats(graph):
 
     return np.mean(costs_list), np.std(costs_list)
 
+def bisection_all_costs(graph):
+    n = graph.number_of_nodes()
+    binary_format = "0" + str(n) + "b"
+    costs_list = []
+
+    # generez toate variantele
+    for k in range(2 ** n):
+        bitstring = format(k, binary_format)
+
+        # verific daca e echilibrat
+        zeros = bitstring.count("0")
+        ones = bitstring.count("1")
+        if zeros == n//2 or ones == n//2:
+            costs_list.append(cut_value(graph, bitstring))
+            
+    return costs_list
+
 
 def max_cut_random_stats(graph):
     n = graph.number_of_nodes()
@@ -226,27 +244,3 @@ def max_cut_random_stats(graph):
         costs_list.append(cut_value(graph, bitstring))
 
     return np.mean(costs_list), np.std(costs_list)
-
-
-
-
-
-
-
-
-def bisection_all_costs(graph):
-    """Cut value of every balanced bitstring."""
-    n = graph.number_of_nodes()
-    binary_format = "0" + str(n) + "b"
-    costs = []
-    for k in range(2 ** n):
-        bitstring = format(k, binary_format)
-        if bitstring.count("1") == n // 2:
-            costs.append(cut_value(graph, bitstring))
-    return costs
-
-
-def bisection_random_stats(graph):
-    """Mean and standard deviation of the cut over all balanced bitstrings."""
-    costs = bisection_all_costs(graph)
-    return np.mean(costs), np.std(costs)

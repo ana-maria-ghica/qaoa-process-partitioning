@@ -46,7 +46,6 @@ def graph_to_json(name, graph_type, n, seed, graph):
     edges = []
     for edge in graph.edges():
         edges.append([edge[0], edge[1]])
-
     instance = {
         "name": name,
         "graph_type": graph_type,
@@ -54,7 +53,6 @@ def graph_to_json(name, graph_type, n, seed, graph):
         "seed": seed,
         "edges": edges
     }
-
     return instance
 
 # formez graful din input JSON
