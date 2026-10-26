@@ -156,3 +156,86 @@ al bitstring-urilor pe care le dă la măsurare.]
   neechilibrate, altfel penalizarea nu e testată deloc.
 - Matricea completă nu încape în memorie la 14 qubiți → matrice rară
   (to_matrix(sparse=True)).
+
+
+
+
+
+## 2026-10-25 / 26 — Etapa 4: QAOA pe simulator
+
+### Ce am făcut
+- src/qaoa.py: build_qaoa (QAOAAnsatz transpilat în h, rx, rz, rzz),
+  hamiltonian_diagonal, energy (statevector + diagonală), energy_landscape,
+  optimize_qaoa (COBYLA, 10 porniri aleatorii, maxiter 200, pornire caldă
+  opțională), warm_start, all_cuts, qaoa_metrics.
+- Hărți de peisaj p = 1 (50×50): triunghi, ring_12 și random_12,
+  Max-Cut și bisecție → figures/landscape_*.png.
+- Optimizare pe toate cele 25 de instanțe × 2 probleme × p = 1, 2, 3,
+  cu pornire caldă → results/params_warm.json, results/sim_ideal_warm.csv.
+- Metrici: valid_fraction, mean_cut, p_optimal, best_sample_cut (4.000 de shot-uri).
+- Test de transfer: ring_8 → ring_12, random_8 → random_12 → results/transfer.csv.
+- Grafic: scorul S vs. p → figures/quality_vs_p.png.
+
+### Rezultate
+- Triunghi, Max-Cut: optimizatorul atinge energia −2 (optimul) deja la p = 1;
+  grila 10×10 găsise doar −1,97 (limitată de pasul grilei).
+- Inele, Max-Cut: raport exact 3/4 (p = 1), 5/6 (p = 2), 7/8 (p = 3), pe toate
+  dimensiunile; unghiurile optime sunt identice între inele.
+- random_12, Max-Cut: raport 0,65 (aleatoriu) → 0,79 (p = 1) → 0,83 (p = 2).
+- Hărți: Max-Cut = o vale largă și netedă; bisecție = dungi înguste pe axa γ
+  (penalizarea cu coeficienți mari face fazele să oscileze rapid).
+- Scor S (0 = aleatoriu, 1 = optim; fără grafurile complete):
+  Max-Cut ≈ 0,45 → 0,68 → 0,80 pentru p = 1, 2, 3, consecvent pe toate tipurile;
+  bisecție 0,15–0,55, bare de eroare mari (unele sub 0), p ajută puțin.
+- Transfer: Max-Cut inel perfect (kept = 1,000), aleatoriu 97–99%.
+  Bisecție inel (p = 2, 3): unghiurile transferate dau p_optimal de ~10× mai mare
+  (0,13–0,21 vs 0,02), dar valid_fraction mult mai mică (0,34–0,58 vs 0,93).
+  Bisecție aleatoriu: transfer slab (~84%).
+
+### Concluzii
+- QAOA ideal funcționează bine și predictibil pe Max-Cut, dar slab și instabil
+  pe bisecția cu penalizare, chiar fără zgomot.
+- La bisecție, energia minimă nu coincide cu ce contează în practică (p_optimal):
+  A mare face optimizatorul să favorizeze echilibrul în dauna tăieturii.
+- Unghiurile nu sunt unice (perioade, simetrii) → compar energii, nu unghiuri.
+
+### Dificultăți și ce am învățat
+- Harta random_10 dura >12 min: QAOAAnsatz simula pașii de cost ca exponențiale
+  de matrici. Soluție: transpilare în porți simple (~70× mai rapid) + energia din
+  diagonală (~2,5×). Lecție: măsor un apel cu %time înainte de bucle lungi.
+- Bara de culori arăta 0–1: plt.colorbar se lega de scatter, nu de imagine.
+  Soluție: plt.colorbar(image).
+- Optimizarea completă (n = 14, bisecție, p = 3) era prea lentă → maxiter = 200.
+- Prima rulare: energia creștea cu p în ~17 cazuri (bisecție) → pornire caldă
+  (stratul nou cu unghiuri 0, deci energia nu poate crește).
+- Și cu pornire caldă: încă ~9 încălcări. Diagnostic pas cu pas: punctul de
+  pornire avea energia corectă, iar COBYLA pornit din el îmbunătățea → problema
+  era în optimize_qaoa: în bucla de optimizare rămăseseră 3 rânduri vechi care
+  suprascriau fiecare pornire cu una aleatorie nouă, deci pornirea caldă nu era
+  folosită niciodată (și pornirile aleatorii difereau de prima rulare).
+  După reparare: 0 încălcări.
+- Restart de kernel + rularea celulei de salvare → fișier JSON golit (open "w"
+  golește fișierul înainte de dump). Soluție: assert len(rows) > 0 înainte de open.
+- all_cuts: "0" + n + "b" (int în loc de str) și listă în loc de array numpy.
+- Formula de transfer: la bisecție (minimizare) calitatea e optim / mean_cut,
+  nu mean_cut / optim; prima variantă inversa interpretarea.
+- Raportul de aproximare a ieșit 1,64 → luasem optimul bisecției în loc de
+  cel de Max-Cut din reference.csv. Raport > 1 = semnal de eroare.
+
+### Verificări care au trecut
+- energy (statevector) = Estimator, la 10⁻¹⁵.
+- 0 încălcări de monotonie după reparare.
+- Max-Cut: |mean_cut + energy| ≤ 7,5 · 10⁻¹³ pe toate rândurile.
+- qaoa_metrics pe exemplul calculat de mână: 0,7 / 1 / 0,7 / 1.
+
+### Limitări
+- COBYLA oprit uneori de limita de 200 de evaluări (mai ales bisecție, p = 3).
+- A = (d_max + 1)/4, mult peste pragul real necesar → domină energia.
+- La bisecție, mean_cut și S ignoră shot-urile invalide → calitatea practică
+  e mai mică decât arată S.
+- Comparația „porniri aleatorii vs. pornire caldă” nu e încă exactă
+  (prima rulare a folosit alte porniri aleatorii); de refăcut cu aceleași porniri.
+
+### Idei pentru extensii
+- Bisecție cu A mai mic (aproape de pragul real).
+- Unghiurile transferate de pe grafuri mici ca pornire suplimentară.
