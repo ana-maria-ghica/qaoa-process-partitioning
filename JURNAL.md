@@ -239,3 +239,120 @@ al bitstring-urilor pe care le dă la măsurare.]
 ### Idei pentru extensii
 - Bisecție cu A mai mic (aproape de pragul real).
 - Unghiurile transferate de pe grafuri mici ca pornire suplimentară.
+
+
+
+## 2026-10-26 — Etapa 5: pregătirea pentru hardware
+
+### Ce am făcut
+- Listat QPU-urile disponibile: ibm_boston, ibm_fez, ibm_kingston, ibm_marrakesh,
+  ibm_pittsburgh (156 qubiți, Heron), ibm_phoenix (120 qubiți, Nighthawk).
+- Comparat backend-urile după medianele calibrării → ales ibm_boston.
+- Snapshot de calibrare → data/qpu/calibration/ibm_boston_2026-10-26T11-48.json
+- Transpilat toate circuitele (25 de grafuri × 2 probleme × p = 1, 2 = 100),
+  cu 5 seed-uri × 2 ordini ale termenilor → results/transpilation_ibm_boston.csv
+- Grafic CZ vs. n → figures/cz_vs_n_ibm_boston.png
+- Simulare cu zgomot pe 12 circuite → results/sim_noisy_ibm_boston.csv
+- src/hardware.py: get_two_qubit_gate, calibration_snapshot,
+  save_calibration_snapshot, backend_summary, transpile_best,
+  transpile_qaoa_best, estimated_success, counts_to_probabilities.
+
+### Ce am învățat despre hardware
+- Porți native pe Heron: rz, sx, x (1 qubit) și cz (2 qubiți). rzz → 2 CZ.
+  rz e virtuală (eroare 0, durată 0) → costul real stă în CZ și în citire.
+- Conectivitate: CZ doar între qubiți vecini. Heron: rețea heavy-hex,
+  grad ≤ 3, cel mai mic ciclu are 12 qubiți. Phoenix: rețea pătrată, grad 4.
+- T1 = timpul de relaxare (1 → 0); T2 = timpul de coerență a fazei.
+  Pe Boston, median ~250 µs / ~290 µs; o poartă CZ durează zeci de ns.
+- Listarea backend-urilor, calibrarea, transpilarea și simularea locală
+  NU consumă timp de QPU; doar joburile rulate efectiv pe procesor.
+- Instanța R2P4 e premium, cu buget comun (~800 min); ~88 min consumate,
+  din care ale mele ~100 s → restul vine de la alți utilizatori ai instanței.
+
+### Alegerea backend-ului
+| backend | eroare CZ | citire | T1 (µs) | T2 (µs) | grad | coadă |
+|---|---|---|---|---|---|---|
+| ibm_boston | 0,119% | 0,63% | 246 | 286 | 3 | 6 |
+| ibm_pittsburgh | 0,155% | 0,43% | 287 | 319 | 3 | 8 |
+| ibm_kingston | 0,175% | 0,90% | 252 | 160 | 3 | 17 |
+| ibm_phoenix | 0,182% | 0,68% | 176 | 158 | 4 | 2645 |
+| ibm_marrakesh | 0,253% | 1,46% | 167 | 84 | 3 | 1998 |
+| ibm_fez | 0,262% | 1,05% | 127 | 89 | 3 | 2 |
+- Boston vs. Pittsburgh: P(fără erori) ≈ (1 − e_CZ)^N_CZ × (1 − e_citire)^n.
+  La 100 CZ egale (~0,81); la 200 CZ, Boston 0,72 vs. Pittsburgh 0,69.
+  Bisecția are multe CZ → Boston. Erorile de citire se pot corecta parțial
+  ulterior, cele CZ nu.
+- Phoenix: conectivitate mai bună, dar coada (2645) îl face impracticabil.
+
+### Transpilare
+- Test ring_6, Max-Cut, p = 1: 12 CZ ideal → 19 după transpilare (SWAP-uri:
+  un inel de 6 nu încape ca ciclu pe heavy-hex); adâncime 8 → 56.
+  Transpilatorul a ales o zonă bună a cipului (qubiții 119, 132–139).
+- Seed-ul contează: câștigătorul variază între circuite (0–4).
+- ring_12, Max-Cut: 24 CZ = 12 muchii × 2, fără SWAP-uri → se așază exact
+  pe un ciclu de 12 qubiți.
+- Ordinea termenilor (descoperire):
+  - observat: la bisecție, același număr de termeni ZZ, dar CZ diferite
+    (n = 10: inel 166, grilă 194, complet 140);
+  - ipoteza 1 (unghiuri speciale): respinsă, aceleași CZ cu unghiuri aleatorii;
+  - ipoteza 2 (ordinea termenilor influențează routing-ul SABRE): confirmată,
+    cu H.sort() toate trei → 140 CZ;
+  - circuitul e identic matematic (termenii ZZ comută) → unghiurile rămân valabile;
+  - decizie: transpilez cu ambele ordini × 5 seed-uri, păstrez minimul de CZ.
+- După sortare: bisecția costă la fel pe orice graf de același n, cât Max-Cut
+  pe graful complet. Regulă empirică: CZ ≈ 3 · p · n(n−1)/2 (rețea de SWAP-uri).
+- Î5, la n = 14: bisecția cere de 4–9× mai multe CZ decât Max-Cut pe grafuri
+  rare (inel, grilă, 3-regulat), doar ~1,2–1,4× pe graful aleatoriu (dens).
+  Costul bisecției depinde doar de n, nu de graf.
+
+### Simulare cu zgomot (AerSimulator.from_backend(ibm_boston))
+- Modelul include: erori de poartă, relaxare T1/T2, erori de citire.
+  NU include: crosstalk, deriva calibrării → QPU probabil puțin mai prost.
+- Bitul clasic i = nodul i (measure_all înainte de transpilare), deci
+  rezultatele se citesc în aceeași convenție ca în tot proiectul.
+- 12 circuite: ring_6, grid_10, regular3_14 × 2 probleme × p = 1, 2; 4000 shots.
+- Max-Cut: mean_cut scade doar 1–2% (chiar la n = 14, p = 2); p_optimal
+  −18% relativ la n = 14. ESP e pesimist pentru metrici de tip medie
+  (o eroare inversează 1–2 biți, nu distruge tăietura).
+- Bisecție: valid_fraction 0,45 → 0,37 la n = 14, p = 2 (aleatoriu: 0,21);
+  mean_cut +9% (mai prost).
+- Zgomotul împinge spre aleatoriu: la grid_10 bisecție, p_optimal crește
+  (0,00014 → 0,00125), pentru că QAOA ideal era sub nivelul aleatoriu.
+  0,00125 = 5 shots din 4000 → dominat de fluctuații statistice.
+- Max-Cut: p = 2 rămâne mai bun și cu zgomot. Bisecție n = 14: p = 2 nu mai
+  aduce nimic față de p = 1.
+
+### Dificultăți și ce am învățat
+- Am crezut că timpul de măsurare e criteriul de alegere. Greșit: măsurarea
+  se face o singură dată; contează eroarea CZ, apoi citirea, apoi T1/T2.
+- Valorile unui singur qubit nu sunt reprezentative (ex. marrakesh: citire
+  0,2%, dar T2 = 39 µs pe qubitul 0) → compar mediane pe tot cipul.
+- Mediana, nu media: câțiva qubiți stricați (eroare 1,0, T1 de câțiva µs)
+  ar trage media în sus; transpilatorul oricum îi evită.
+- Snapshot-ul a ieșit pentru ibm_pittsburgh în loc de ibm_boston: bucla de
+  comparație folosea tot variabila `backend` și o suprascria cu ultimul QPU.
+  Soluție: variabilă de buclă `candidate` + BACKEND_NAME fixat explicit.
+- Calibrarea poate avea valori lipsă (Boston: t1 = None la qubitul 10,
+  t2 = None la qubitul 146) → calibration_snapshot cu .get() și verificări None.
+- Cale scrisă direct în funcție ("../data/...") depinde de locul de rulare →
+  parametru cu valoare implicită + os.makedirs.
+- rows_warm nu exista în notebook-ul 05 (fiecare notebook are kernelul lui)
+  → încărcat din results/params_warm.json.
+- Ordinea termenilor: ~40% CZ în plus la grid_10 dintr-un detaliu de
+  implementare. Lecție: verific că diferențele nu vin din cod, înainte să
+  le atribui problemei.
+
+### Fișiere noi
+- data/qpu/backend_comparison_2026-10-26.csv
+- data/qpu/calibration/ibm_boston_2026-10-26T11-48.json
+- results/transpilation_ibm_boston.csv
+- results/sim_noisy_ibm_boston.csv
+- figures/cz_vs_n_ibm_boston.png
+
+### Lista pentru QPU
+- data/qpu/circuit_list_2026-10-26.csv: 36 de circuite din matrice
+  (inel, 3-regulat, aleatoriu × n = 6, 10, 14 × 2 probleme × p = 1, 2)
+  + bisecție p = 3 pe regular3_14 și random_14 (teste de stres).
+- Predicții: [câte works / weak / fail] + o frază de justificare per categorie.
+- Repetare în altă zi: ring_6 Max-Cut, regular3_10 bisecție, random_14 Max-Cut (p = 1).
+- Lista nu se mai schimbă după prima rulare pe QPU.
