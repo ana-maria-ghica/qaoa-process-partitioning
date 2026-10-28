@@ -1,0 +1,9 @@
+{
+  "job_id": "dbgt7p4dgr2s73cs88ug",
+  "labels": [
+    "ring_6|maxcut|p1",
+    "regular3_10|bisection|p1",
+    "random_14|maxcut|p1"
+  ],
+  "calibration": "../data/qpu/calibration/ibm_pittsburgh_2026-10-28T10-52.json"
+}

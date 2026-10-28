@@ -1,0 +1,55 @@
+{
+  "6": {
+    "job_id": "dbgbqgdrd2mc73cudb2g",
+    "labels": [
+      "random_6|bisection|p1",
+      "random_6|bisection|p2",
+      "random_6|maxcut|p1",
+      "random_6|maxcut|p2",
+      "regular3_6|bisection|p1",
+      "regular3_6|bisection|p2",
+      "regular3_6|maxcut|p1",
+      "regular3_6|maxcut|p2",
+      "ring_6|bisection|p1",
+      "ring_6|bisection|p2",
+      "ring_6|maxcut|p1",
+      "ring_6|maxcut|p2"
+    ]
+  },
+  "10": {
+    "job_id": "dbgbqgpj4t8s73ac1n6g",
+    "labels": [
+      "random_10|bisection|p1",
+      "random_10|bisection|p2",
+      "random_10|maxcut|p1",
+      "random_10|maxcut|p2",
+      "regular3_10|bisection|p1",
+      "regular3_10|bisection|p2",
+      "regular3_10|maxcut|p1",
+      "regular3_10|maxcut|p2",
+      "ring_10|bisection|p1",
+      "ring_10|bisection|p2",
+      "ring_10|maxcut|p1",
+      "ring_10|maxcut|p2"
+    ]
+  },
+  "14": {
+    "job_id": "dbgbqh0iudkc73e460ng",
+    "labels": [
+      "random_14|bisection|p1",
+      "random_14|bisection|p2",
+      "random_14|maxcut|p1",
+      "random_14|maxcut|p2",
+      "regular3_14|bisection|p1",
+      "regular3_14|bisection|p2",
+      "regular3_14|maxcut|p1",
+      "regular3_14|maxcut|p2",
+      "ring_14|bisection|p1",
+      "ring_14|bisection|p2",
+      "ring_14|maxcut|p1",
+      "ring_14|maxcut|p2",
+      "regular3_14|bisection|p3",
+      "random_14|bisection|p3"
+    ]
+  }
+}

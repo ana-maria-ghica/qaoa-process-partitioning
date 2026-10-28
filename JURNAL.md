@@ -356,3 +356,14 @@ al bitstring-urilor pe care le dă la măsurare.]
 - Predicții: [câte works / weak / fail] + o frază de justificare per categorie.
 - Repetare în altă zi: ring_6 Max-Cut, regular3_10 bisecție, random_14 Max-Cut (p = 1).
 - Lista nu se mai schimbă după prima rulare pe QPU.
+
+
+### 2026-10-27 — Schimbarea backend-ului
+- Pilotul (dbfl1hnpc3tc739nn13g) a stat 19 h în coadă pe ibm_boston, fără să
+  pornească: coada a crescut de la 6 la 365 de joburi.
+- Anulat; trecut pe ibm_pittsburgh (a doua alegere din comparația din Etapa 5,
+  practic la egalitate: CZ mai slab, citire și T1/T2 mai bune), coadă de 7 joburi.
+- Lista de circuite rămâne aceeași; transpilarea și simularea cu zgomot refăcute
+  pe Pittsburgh.
+- Lecție: coada unui backend se poate schimba radical de la o zi la alta;
+  verific coada chiar înainte de trimitere.

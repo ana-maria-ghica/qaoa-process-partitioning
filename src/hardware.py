@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import os
 from qiskit.transpiler import generate_preset_pass_manager 
 from src.qaoa import build_qaoa
+from qiskit import qpy
 
 # verific ce porti din setul de operatii folosesc porti cu 2 qubiti
 def get_two_qubit_gate(backend):
@@ -183,6 +184,36 @@ def estimated_success(transpiled, backend):
 
 
 
+def estimated_success_from_snapshot(transpiled, snapshot):
+    """ESP of a transpiled circuit, using a saved calibration snapshot instead of the live backend."""
+    readout = {q["qubit"]: q["readout_error"] for q in snapshot["qubits"]}
+    sx = {q["qubit"]: q["sx_error"] for q in snapshot["qubits"]}
+    two_qubit = {tuple(pair["qubits"]): pair["error"] for pair in snapshot["pairs"]}
+    gate_2q = snapshot["two_qubit_gate"]
+
+    probability = 1.0
+    for instruction in transpiled.data:
+        name = instruction.operation.name
+        qubits = tuple(transpiled.find_bit(q).index for q in instruction.qubits)
+        if name == gate_2q:
+            error = two_qubit.get(qubits)
+        elif name == "measure":
+            error = readout.get(qubits[0])
+        elif name in ("sx", "x"):
+            error = sx.get(qubits[0])      # x error not in the snapshot; ≈ sx error on IBM
+        else:
+            error = None                   # rz (virtual), barrier, ...
+        if error is not None:
+            probability *= 1 - error
+    return probability
+
+
+
+
+
+
+
+
 
 
 def counts_to_probabilities(counts, n):
@@ -193,3 +224,54 @@ def counts_to_probabilities(counts, n):
     for bitstring, count in counts.items():
         probabilities[int(bitstring, 2)] = count / shots
     return probabilities
+
+
+
+
+
+
+def save_job_data(job, labels, circuits, calibration_path, folder="../data/qpu", tag=""):
+    """Save everything needed to reconstruct a QPU job without the IBM account:
+    the transpiled circuits (.qpy), the raw counts (.json) and one row in manifest.csv."""
+    job_id = job.job_id()
+    os.makedirs(os.path.join(folder, "circuits"), exist_ok=True)
+    os.makedirs(os.path.join(folder, "raw"), exist_ok=True)
+
+    # 1. the circuits exactly as they were sent
+    circuits_path = os.path.join(folder, "circuits", job_id + ".qpy")
+    with open(circuits_path, "wb") as f:
+        qpy.dump(circuits, f)
+
+    # 2. the raw results: counts for every circuit, by label
+    result = job.result()
+    counts = {}
+    for i, label in enumerate(labels):
+        counts[label] = result[i].data.meas.get_counts()
+
+    raw_path = os.path.join(folder, "raw", job_id + ".json")
+    with open(raw_path, "w") as f:
+        json.dump({
+            "job_id": job_id,
+            "backend": job.backend().name,
+            "created": str(job.creation_date),
+            "labels": labels,
+            "counts": counts,
+        }, f, indent=2)
+
+    # 3. one row in the manifest of all jobs
+    manifest_path = os.path.join(folder, "manifest.csv")
+    row = pd.DataFrame([{
+        "job_id": job_id,
+        "tag": tag,
+        "backend": job.backend().name,
+        "created": str(job.creation_date),
+        "n_circuits": len(labels),
+        "shots": sum(counts[labels[0]].values()),
+        "qpu_seconds": job.usage(),
+        "calibration": calibration_path,
+        "circuits": circuits_path,
+        "raw": raw_path,
+    }])
+    row.to_csv(manifest_path, mode="a", header=not os.path.exists(manifest_path), index=False)
+
+    return raw_path

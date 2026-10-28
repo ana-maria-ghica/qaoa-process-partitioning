@@ -1,0 +1,6 @@
+job_id,tag,backend,created,n_circuits,shots,qpu_seconds,calibration,circuits,raw
+dbg7jelrd2mc73cu4q8g,pilot,ibm_pittsburgh,2026-10-27 12:15:22.861241+02:00,2,1000,3,../data/qpu/calibration/ibm_pittsburgh_2026-10-27T10-15.json,../data/qpu/circuits/dbg7jelrd2mc73cu4q8g.qpy,../data/qpu/raw/dbg7jelrd2mc73cu4q8g.json
+dbgbqgdrd2mc73cudb2g,main_n6,ibm_pittsburgh,2026-10-27 17:03:29.633575+02:00,12,4000,15,../data/qpu/calibration/ibm_pittsburgh_2026-10-27T15-02.json,../data/qpu/circuits/dbgbqgdrd2mc73cudb2g.qpy,../data/qpu/raw/dbgbqgdrd2mc73cudb2g.json
+dbgbqgpj4t8s73ac1n6g,main_n10,ibm_pittsburgh,2026-10-27 17:03:31.342106+02:00,12,4000,15,../data/qpu/calibration/ibm_pittsburgh_2026-10-27T15-02.json,../data/qpu/circuits/dbgbqgpj4t8s73ac1n6g.qpy,../data/qpu/raw/dbgbqgpj4t8s73ac1n6g.json
+dbgbqh0iudkc73e460ng,main_n14,ibm_pittsburgh,2026-10-27 17:03:32.784358+02:00,14,4000,18,../data/qpu/calibration/ibm_pittsburgh_2026-10-27T15-02.json,../data/qpu/circuits/dbgbqh0iudkc73e460ng.qpy,../data/qpu/raw/dbgbqh0iudkc73e460ng.json
+dbgt7p4dgr2s73cs88ug,repeat,ibm_pittsburgh,2026-10-28 12:52:20.974269+02:00,3,4000,5,../data/qpu/calibration/ibm_pittsburgh_2026-10-28T10-52.json,../data/qpu/circuits/dbgt7p4dgr2s73cs88ug.qpy,../data/qpu/raw/dbgt7p4dgr2s73cs88ug.json
