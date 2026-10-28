@@ -6,3 +6,13 @@
 
 # metadatele de instalare
 *.egg-info/
+
+#.vscode
+.vscode/
+
+# in plus
+__pycache__/
+.ipynb_checkpoints/
+.~lock*
+.DS_Store
+*.pdf

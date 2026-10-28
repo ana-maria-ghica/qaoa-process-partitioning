@@ -1,1 +1,1 @@
-# qaoa-vs-classical-partitioning
+# qaoa-process-partitioning
