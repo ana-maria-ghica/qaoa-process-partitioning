@@ -141,7 +141,7 @@ and weighted graphs) are in [`results/conclusions.md`](results/conclusions.md).
 ## How to run
 
 ```bash
-git clone https://github.com/<user>/qaoa-process-partitioning.git
+git clone https://github.com/ana-maria-ghica/qaoa-process-partitioning.git
 cd qaoa-process-partitioning
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && pip install -e .
