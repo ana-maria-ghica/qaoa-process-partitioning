@@ -73,7 +73,7 @@ def check_bisection_hamiltonian(graph):
         cut = cut_value(graph, bitstring)
         expected = cut + A * spin_sum ** 2
 
-        assert abs(diagonal[i] - expected) < TOLERANCE, "mismatch for bitstring " + bitstring + ": energy " + str(diagonal[i]) + ", expected " + str(cut)
+        assert abs(diagonal[i] - expected) < TOLERANCE, "mismatch for bitstring " + bitstring + ": energy " + str(diagonal[i]) + ", expected " + str(expected)
 
 def check_balanced_bitstring(bitstrings, n):
     for bitstring in bitstrings:
@@ -86,7 +86,6 @@ def check_balanced_bitstring(bitstrings, n):
         
 
 def bisection_ground_states(graph, A):
-    # A = generate_penalty_A(graph)
     H_b = bisection_hamiltonian(graph, A)
     diagonal = H_b.to_matrix(sparse=True).diagonal().real
     min_energy = diagonal.min()
@@ -105,6 +104,8 @@ def bisection_ground_states(graph, A):
 
 
 def check_bisection_ground_states(graph):
+    A = generate_penalty_A(graph)
+    n = graph.number_of_nodes()
     min_energy, ground_states = bisection_ground_states(graph)
     bruteforce_cost, bruteforce_list = bisection_bruteforce(graph)
 

@@ -79,42 +79,43 @@ def all_cuts(graph):
 
     return np.array(cuts_list)
 
-# functia propriu-zisa
 def qaoa_metrics(graph, problem, probabilities, optimal_bitstrings, num_samples=4000, seed=42):
+    """Metrics of a probability distribution over bitstrings, for one graph and problem:
+    valid_fraction, mean_cut (over valid bitstrings), p_optimal and the best cut among
+    num_samples simulated shots. Metrics that need valid bitstrings are NaN if there are none."""
     n = graph.number_of_nodes()
     cuts = all_cuts(graph)
 
-    # in functie de problema [max cut / bisection] selectez bitstring-urile valide
-    valid = np.zeros(2 ** n, dtype=bool)
-    binary_format = "0" + str(n) + "b"
-    for k in range(2 ** n):
-        if problem == "maxcut":
-            valid[k] = True
-        else:
-            zeros = format(k, binary_format).count("0")
-            ones = n - zeros
-            if zeros == n//2 or ones == n//2:
-                valid[k] = True
+    # valid bitstrings: all of them for Max-Cut, only the balanced ones for bisection
+    if problem == "maxcut":
+        valid = np.ones(2 ** n, dtype=bool)
+    else:
+        k = np.arange(2 ** n)
+        ones = sum((k >> i) & 1 for i in range(n))       # number of 1s in each bitstring
+        valid = (ones == n // 2) | (n - ones == n // 2)
 
-    # suma probabilitatilor bitstring-urilor valide
+    # total probability of the valid bitstrings
     valid_fraction = np.sum(probabilities[valid])
 
-    # cat de buna este, in medie, taietura
-    mean_cut = np.sum(probabilities[valid] * cuts[valid]) / valid_fraction
+    # average cut, over the valid bitstrings only (NaN if there are none)
+    if valid_fraction > 0:
+        mean_cut = np.sum(probabilities[valid] * cuts[valid]) / valid_fraction
+    else:
+        mean_cut = np.nan
 
-    # probabilitatea sa gasesc solutia optima
-    p_optimal = 0
-    for bitstring in optimal_bitstrings:
-        p_optimal += probabilities[int(bitstring, 2)]
+    # probability of measuring an optimal solution
+    p_optimal = sum(probabilities[int(bitstring, 2)] for bitstring in optimal_bitstrings)
 
-    # 4. best cut among num_samples simulated shots (valid shots only)
+    # best cut among num_samples simulated shots (valid shots only; NaN if there are none)
     rng = np.random.default_rng(seed)
     samples = rng.choice(2 ** n, size=num_samples, p=probabilities / np.sum(probabilities))
     valid_samples = samples[valid[samples]]
-    if problem == "maxcut":
-        best_sample_cut = np.max(cuts[valid_samples])
+    if len(valid_samples) == 0:
+        best_sample_cut = np.nan
+    elif problem == "maxcut":
+        best_sample_cut = np.max(cuts[valid_samples])     # Max-Cut: the larger the better
     else:
-        best_sample_cut = np.min(cuts[valid_samples])
+        best_sample_cut = np.min(cuts[valid_samples])     # bisection: the smaller the better
 
     return {
         "valid_fraction": float(valid_fraction),

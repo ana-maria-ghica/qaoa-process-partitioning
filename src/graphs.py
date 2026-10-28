@@ -1,5 +1,6 @@
 import networkx as nx
 import json
+from src.paths import DATA
 
 SIZES = [6, 8, 10, 12, 14]
 BASE_SEED = 42
@@ -115,4 +116,4 @@ def load_instances(path):
 # apelez functia main -------------------------------------------------
 if __name__ == "__main__":
     instances = build()
-    save_instances(instances, "../data/instances.json")
+    save_instances(instances, DATA / "instances.json")

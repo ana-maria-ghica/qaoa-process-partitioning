@@ -61,8 +61,6 @@ def bisection_bruteforce(graph):
     return best_cut, bitstring_list
 
 # implementare greedy pentru bisection ------------------------------------------
-RESTART_ITER_NUM = 20
-
 def random_balanced_bitstring(n, rng):
     bitstring = ["0"] * (n//2) + ["1"] * (n//2)
     rng.shuffle(bitstring)
@@ -112,16 +110,16 @@ def bisection_local_search(graph, start_bitstring):
     return current, current_cost
 
 
-def bisection_greedy(graph):
+def bisection_greedy(graph, seed=42, num_restarts=20):
     # generez un bitstring random, echilibrat
     n = graph.number_of_nodes()
-    rng = random.Random(42)
+    rng = random.Random(seed)
     
     best_cost = None
     best_bitstring = None
 
     # 20 de cautari diferite
-    for _ in range(RESTART_ITER_NUM):
+    for _ in range(num_restarts):
         # bistring-ul de start
         bitstring = random_balanced_bitstring(n, rng)
 
@@ -198,21 +196,7 @@ def max_cut_greedy(graph, num_restarts=20, seed=42):
 
 # determin media si abaterea standard ------------------------------------------
 def bisection_random_stats(graph):
-    n = graph.number_of_nodes()
-    binary_format = "0" + str(n) + "b"
-    costs_list = []
-
-    # generez toate variantele
-    for k in range(2 ** n):
-        bitstring = format(k, binary_format)
-
-        # verific daca e echilibrat
-        zeros = bitstring.count("0")
-        ones = bitstring.count("1")
-
-        if zeros == n//2 or ones == n//2:
-            costs_list.append(cut_value(graph, bitstring))
-
+    costs_list = bisection_all_costs(graph)
     return np.mean(costs_list), np.std(costs_list)
 
 def bisection_all_costs(graph):

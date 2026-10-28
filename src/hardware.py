@@ -4,6 +4,8 @@ import os
 from qiskit.transpiler import generate_preset_pass_manager 
 from src.qaoa import build_qaoa
 from qiskit import qpy
+import numpy as np
+import pandas as pd
 
 # verific ce porti din setul de operatii folosesc porti cu 2 qubiti
 def get_two_qubit_gate(backend):
@@ -64,8 +66,6 @@ def save_calibration_snapshot(backend, folder="../data/qpu/calibration"):
 
 
 # trebuie sa compar backend urile si sa vad pe care il aleg: iau mediana si nu media erorilor de citire
-import numpy as np
-import pandas as pd
 
 def backend_summary(backend):
     target = backend.target
