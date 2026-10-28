@@ -1,4 +1,4 @@
-# Communication-aware process placement: classical vs. quantum optimisation
+# Distributed Process Allocation: Quantum vs. Classical Optimisation
 
 Placing communicating processes on two machines is a constrained graph-partitioning problem: minimise inter-machine traffic while keeping the load balanced.
 This project formulates it as a binary optimisation problem and solves it three ways: exact enumeration, greedy local search, and the
