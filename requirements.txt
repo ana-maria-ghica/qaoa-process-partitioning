@@ -1,0 +1,12 @@
+matplotlib==3.11.2
+matplotlib-inline==0.2.2
+networkx==3.7
+numpy==2.5.4
+pandas==3.0.6
+qiskit==2.6.0
+qiskit-addon-opt-mapper==0.1.0
+qiskit-aer==0.18.0
+qiskit-ibm-runtime==0.50.0
+qiskit-mitigation==0.1.1
+qiskit-qasm3-import==0.6.0
+scipy==1.18.1

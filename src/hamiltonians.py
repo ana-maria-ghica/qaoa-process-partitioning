@@ -112,7 +112,7 @@ def bisection_ground_states(graph, A):
 def check_bisection_ground_states(graph):
     A = generate_penalty_A(graph)
     n = graph.number_of_nodes()
-    min_energy, ground_states = bisection_ground_states(graph)
+    min_energy, ground_states = bisection_ground_states(graph, A)
     bruteforce_cost, bruteforce_list = bisection_bruteforce(graph)
 
     assert abs(bruteforce_cost - min_energy) < TOLERANCE, "minimum energy " + str(min_energy) + " differs from optimum " + str(bruteforce_cost)

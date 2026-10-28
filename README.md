@@ -115,9 +115,9 @@ cd qaoa-process-partitioning
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && pip install -e .
 
-pytest                      # unit tests
-python make_figures.py      # regenerate F1–F7 from the saved results
+pytest                      
 ```
+# regenerate all figures: open notebooks/07_analysis.ipynb → Restart + Run All
 
 Notebooks `01`–`04` and `07` run locally from the saved data. `05`, `06` and `00` need an IBM Quantum account; the cells that submit jobs are locked,
 and their results are already in `data/qpu/`, so the analysis never needs the QPU.

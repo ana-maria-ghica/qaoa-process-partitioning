@@ -12,7 +12,7 @@ def score(mean_cut, optimum, random_mean):
     denominator = random_mean - optimum
     zero = np.isclose(denominator, 0)
     with np.errstate(divide="ignore", invalid="ignore"):
-        result = (random_mean - mean_cut) / denominator
+        result = np.divide(random_mean - mean_cut, denominator)
     if isinstance(result, pd.Series):
         return result.mask(zero)
     if np.ndim(result) > 0:
