@@ -2,6 +2,7 @@ import networkx as nx
 import json
 from src.paths import DATA
 
+# instance settings: sizes, seed, grid shape for each n, edge probability for random graphs
 SIZES = [6, 8, 10, 12, 14]
 BASE_SEED = 42
 GRID_SIZES = {
@@ -13,23 +14,24 @@ GRID_SIZES = {
 }
 PROBABILITY = 0.4
 
-# functiile generatoare de grafuri -------------------------------------------------
-# graf inel
+
+# ring: every node linked to the next one, the last back to the first
 def make_ring(n):
     return nx.cycle_graph(n)
 
-# graf de tip grid
-# fiecare nod are pozitie (i,j) => la final trebuie indexate ca 0,1,2,3,...
+
+# rows x cols grid, with the (i, j) node labels turned into 0, 1, 2, ...
 def make_grid(rows, cols):
     grid = nx.grid_2d_graph(rows, cols)
     return nx.convert_node_labels_to_integers(grid)
 
-# graf in care fiecare nod are exact 3 vecini
+
+# random graph where every node has exactly 3 neighbours
 def make_regular3(n, seed):
     return nx.random_regular_graph(3, n, seed=seed)
 
-# graf random - fiecare pereche de noduri e conectata cu probabilitatea p
-# daca graful nu e conectat - reincerc
+
+# erdos-renyi graph with edge probability p; bumps the seed until the graph is connected
 def make_random(n, p, seed):
     current_seed = seed
     while True:
@@ -38,11 +40,13 @@ def make_random(n, p, seed):
             return graph, current_seed
         current_seed = current_seed + 1
 
-# graf complet
+
+# every pair of nodes is connected
 def make_complete(n):
     return nx.complete_graph(n)
 
-# traduc graful in text JSON -------------------------------------------------
+
+# packs a graph into a json-friendly dict: name, type, size, seed, edge list
 def graph_to_json(name, graph_type, n, seed, graph):
     edges = []
     for edge in graph.edges():
@@ -56,7 +60,8 @@ def graph_to_json(name, graph_type, n, seed, graph):
     }
     return instance
 
-# formez graful din input JSON
+
+# rebuilds the networkx graph from a saved instance
 def json_to_graph(instance):
     graph = nx.Graph()
     graph.add_nodes_from(range(instance["n"]))
@@ -64,15 +69,17 @@ def json_to_graph(instance):
         graph.add_edge(edge[0], edge[1])
     return graph
 
+
+# looks up an instance by name, e.g. "ring_12"
 def find_instance(instances, name):
     for instance in instances:
         if instance["name"] == name:
             return instance
     return None
 
-# construiesc instantele -------------------------------------------------
+
+# all 25 instances: 5 graph types x 5 sizes
 def build():
-    # toate instantele pe care o sa le adaug in JSON
     instances = []
 
     for n in SIZES:
@@ -93,7 +100,8 @@ def build():
 
     return instances
 
-# prelucrez fisierul JSON -------------------------------------------------
+
+# writes the instances to json, one instance per line so the file stays readable
 def save_instances(instances, path):
     file = open(path, "w")
     file.write("[\n")
@@ -103,17 +111,20 @@ def save_instances(instances, path):
         if k < len(instances) - 1:
             line = line + ","
         file.write("  " + line + "\n")
-        
+
     file.write("]\n")
     file.close()
 
+
+# reads the instances back from the json file
 def load_instances(path):
     file = open(path, "r")
     content = json.load(file)
     file.close()
     return content
 
-# apelez functia main -------------------------------------------------
+
+# python -m src.graphs regenerates data/instances.json
 if __name__ == "__main__":
     instances = build()
     save_instances(instances, DATA / "instances.json")

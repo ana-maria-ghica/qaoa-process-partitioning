@@ -1,45 +1,53 @@
 import json
 from datetime import datetime, timezone
 import os
-from qiskit.transpiler import generate_preset_pass_manager 
-from src.qaoa import build_qaoa
-from qiskit import qpy
+
 import numpy as np
 import pandas as pd
+from qiskit import qpy
+from qiskit.transpiler import generate_preset_pass_manager
 
-# verific ce porti din setul de operatii folosesc porti cu 2 qubiti
+from src.qaoa import build_qaoa
+
+
+# name of the backend's native two-qubit gate (e.g. "cz")
 def get_two_qubit_gate(backend):
     for name in backend.target.operation_names:
-        operation = backend.target.operation_from_name(name)
-        if operation.num_qubits == 2:
+        if backend.target.operation_from_name(name).num_qubits == 2:
             return name
-
     return None
 
-# am nevoie de un snapshot al calibrarii pentru backend
+
+# calibrated error of an operation on given qubits, or None if the backend has no value for it
+def _error(target, operation, qubits):
+    if operation not in target.operation_names:
+        return None
+    properties = target[operation].get(qubits)
+    return properties.error if properties is not None else None
+
+
+# current calibration of the backend: t1, t2, readout and sx error per qubit, error per coupled pair
+# missing values are stored as None instead of crashing
 def calibration_snapshot(backend):
-    """The current calibration data of the backend, as a dictionary."""
     target = backend.target
     gate_2q = get_two_qubit_gate(backend)
 
-    # intr o lista de qubiti iau toate detaliile despre ei
     qubits = []
     for q in range(backend.num_qubits):
         properties = backend.qubit_properties(q)
         qubits.append({
             "qubit": q,
-            "t1": properties.t1,
-            "t2": properties.t2,
-            "readout_error": target["measure"][(q,)].error,
-            "sx_error": target["sx"][(q,)].error,
+            "t1": properties.t1 if properties is not None else None,
+            "t2": properties.t2 if properties is not None else None,
+            "readout_error": _error(target, "measure", (q,)),
+            "sx_error": _error(target, "sx", (q,)),
         })
 
-    # perechile de qubiti
     pairs = []
     for qubit_pair, properties in target[gate_2q].items():
         pairs.append({
             "qubits": list(qubit_pair),
-            "error": properties.error,
+            "error": properties.error if properties is not None else None,
         })
 
     return {
@@ -51,9 +59,8 @@ def calibration_snapshot(backend):
     }
 
 
-# salvez snapshot-ul sub format json
+# saves the snapshot as json, named after the backend and the time; returns the path
 def save_calibration_snapshot(backend, folder="../data/qpu/calibration"):
-    """Save the current calibration of the backend as a JSON file; return its path."""
     snapshot = calibration_snapshot(backend)
     time_tag = snapshot["timestamp"][:16].replace(":", "-")
 
@@ -61,32 +68,33 @@ def save_calibration_snapshot(backend, folder="../data/qpu/calibration"):
     path = os.path.join(folder, backend.name + "_" + time_tag + ".json")
     with open(path, "w") as f:
         json.dump(snapshot, f, indent=2)
-
     return path
 
 
-# trebuie sa compar backend urile si sa vad pe care il aleg: iau mediana si nu media erorilor de citire
-
+# one row for the backend comparison: medians over the whole chip, so a few broken qubits don't skew it
 def backend_summary(backend):
     target = backend.target
     gate = get_two_qubit_gate(backend)
 
     # errors of the two-qubit gate, over all coupled pairs
-    errors_2q = [props.error for props in target[gate].values()
-                 if props is not None and props.error is not None]
+    errors_2q = []
+    for properties in target[gate].values():
+        if properties is not None and properties.error is not None:
+            errors_2q.append(properties.error)
 
-    # readout errors, over all qubits -----> de rescris in forma larga, sa inteleg si eu cum se pun termenii
-    errors_readout = [props.error for props in target["measure"].values()
-                      if props is not None and props.error is not None]
+    # readout errors, over all qubits
+    errors_readout = []
+    for properties in target["measure"].values():
+        if properties is not None and properties.error is not None:
+            errors_readout.append(properties.error)
 
     # coherence times, over all qubits (in microseconds)
-    t1 = []
-    t2 = []
+    t1, t2 = [], []
     for q in range(backend.num_qubits):
         qp = backend.qubit_properties(q)
-        if qp.t1 is not None:
+        if qp is not None and qp.t1 is not None:
             t1.append(qp.t1 * 1e6)
-        if qp.t2 is not None:
+        if qp is not None and qp.t2 is not None:
             t2.append(qp.t2 * 1e6)
 
     # connectivity: how many neighbours each qubit has
@@ -108,64 +116,41 @@ def backend_summary(backend):
     }
 
 
-# partea de transpile
+# transpiles with several seeds and keeps the version with the fewest two-qubit gates
 def transpile_best(circuit, backend, seeds=(0, 1, 2, 3, 4), optimization_level=3):
-    """Transpile with several seeds; keep the result with the fewest two-qubit gates."""
-    # 1. the name of the two-qubit gate on this backend
     gate_2q = get_two_qubit_gate(backend)
+    best, best_count, best_seed = None, None, None
 
-    # 2. "best so far": nothing yet
-    best = None
-    best_count = None
-    best_seed = None
-
-    # 3. try every seed
     for seed in seeds:
-        pass_manager = generate_preset_pass_manager(backend=backend, optimization_level=optimization_level, seed_transpiler=seed)
+        pass_manager = generate_preset_pass_manager(
+            backend=backend, optimization_level=optimization_level, seed_transpiler=seed)
         transpiled = pass_manager.run(circuit)
         count = transpiled.count_ops().get(gate_2q, 0)
-
         if best is None or count < best_count:
-            best = transpiled
-            best_count = count
-            best_seed = seed
+            best, best_count, best_seed = transpiled, count, seed
 
-    # 4. the winner
     return best, best_seed
 
 
-
+# builds the qaoa circuit with the hamiltonian terms in original and sorted order,
+# since the order changes the routing; keeps whichever transpiles to fewer two-qubit gates
 def transpile_qaoa_best(H, p, params, backend, seeds=(0, 1, 2, 3, 4)):
-    """Build the QAOA circuit with the terms of H in two orders (original and sorted),
-    transpile each with several seeds, and keep the one with the fewest two-qubit gates."""
     gate_2q = get_two_qubit_gate(backend)
-    best = None
-    best_count = None
-    best_seed = None
-    best_order = None
+    best, best_count, best_seed, best_order = None, None, None, None
 
     for order, hamiltonian in [("original", H), ("sorted", H.sort())]:
         circuit = build_qaoa(hamiltonian, p).assign_parameters(params)
         circuit.measure_all()
         transpiled, seed = transpile_best(circuit, backend, seeds)
         count = transpiled.count_ops().get(gate_2q, 0)
-
         if best is None or count < best_count:
-            best = transpiled
-            best_count = count
-            best_seed = seed
-            best_order = order
+            best, best_count, best_seed, best_order = transpiled, count, seed, order
 
     return best, best_seed, best_order
 
 
-
-
-
-
-
+# esp: chance that no gate and no readout fails, from the live calibration
 def estimated_success(transpiled, backend):
-    """Probability that no gate and no readout fails, from the backend calibration."""
     target = backend.target
     probability = 1.0
 
@@ -181,11 +166,8 @@ def estimated_success(transpiled, backend):
     return probability
 
 
-
-
-
+# same esp, but from a saved snapshot, so it can be recomputed later without the backend
 def estimated_success_from_snapshot(transpiled, snapshot):
-    """ESP of a transpiled circuit, using a saved calibration snapshot instead of the live backend."""
     readout = {q["qubit"]: q["readout_error"] for q in snapshot["qubits"]}
     sx = {q["qubit"]: q["sx_error"] for q in snapshot["qubits"]}
     two_qubit = {tuple(pair["qubits"]): pair["error"] for pair in snapshot["pairs"]}
@@ -208,17 +190,8 @@ def estimated_success_from_snapshot(transpiled, snapshot):
     return probability
 
 
-
-
-
-
-
-
-
-
+# counts -> probability vector of length 2^n, indexed like Statevector.probabilities()
 def counts_to_probabilities(counts, n):
-    """Turn a counts dictionary {bitstring: count} into a probability vector of length 2^n,
-    indexed like Statevector.probabilities() (bitstring read as a binary number)."""
     probabilities = np.zeros(2 ** n)
     shots = sum(counts.values())
     for bitstring, count in counts.items():
@@ -226,13 +199,9 @@ def counts_to_probabilities(counts, n):
     return probabilities
 
 
-
-
-
-
+# saves the sent circuits (.qpy), the raw counts (.json) and a manifest row,
+# so a job can be analysed later without the ibm account
 def save_job_data(job, labels, circuits, calibration_path, folder="../data/qpu", tag=""):
-    """Save everything needed to reconstruct a QPU job without the IBM account:
-    the transpiled circuits (.qpy), the raw counts (.json) and one row in manifest.csv."""
     job_id = job.job_id()
     os.makedirs(os.path.join(folder, "circuits"), exist_ok=True)
     os.makedirs(os.path.join(folder, "raw"), exist_ok=True)
@@ -244,9 +213,7 @@ def save_job_data(job, labels, circuits, calibration_path, folder="../data/qpu",
 
     # 2. the raw results: counts for every circuit, by label
     result = job.result()
-    counts = {}
-    for i, label in enumerate(labels):
-        counts[label] = result[i].data.meas.get_counts()
+    counts = {label: result[i].data.meas.get_counts() for i, label in enumerate(labels)}
 
     raw_path = os.path.join(folder, "raw", job_id + ".json")
     with open(raw_path, "w") as f:

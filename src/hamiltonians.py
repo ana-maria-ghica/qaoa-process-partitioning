@@ -2,9 +2,11 @@ from qiskit.quantum_info import SparsePauliOp
 from src.classical import cut_value, bisection_bruteforce
 import numpy as np
 
+# how close two floats must be to count as equal in the checks
 TOLERANCE = 1e-9
 
-# definesc hamiltonianul pentru max cut
+
+# max-cut hamiltonian: energy = -cut, one zz term per edge
 def max_cut_hamiltonian(graph):
     n = graph.number_of_nodes()
     terms = []
@@ -17,7 +19,8 @@ def max_cut_hamiltonian(graph):
     H = SparsePauliOp.from_sparse_list(terms, num_qubits=n).simplify()
     return H
 
-# determin matricea diagonala pt hamiltonian + validez valorile
+
+# checks that the diagonal of the max-cut hamiltonian equals -cut for every bitstring
 def check_max_cut_hamiltonian(graph):
     H = max_cut_hamiltonian(graph)
     diagonal = H.to_matrix(sparse=True).diagonal().real
@@ -31,27 +34,25 @@ def check_max_cut_hamiltonian(graph):
         assert abs(diagonal[i] - (-cut)) < TOLERANCE, "mismatch for bitstring " + bitstring + ": energy " + str(diagonal[i]) + ", expected " + str(-cut)
 
 
-# determin penalizarea A
+# penalty weight A = (d_max + 1) / 4, large enough that unbalanced splits never win
 def generate_penalty_A(graph):
     d = dict(graph.degree())
     d_max = max(d.values())
     return (d_max + 1) / 4
 
-# definesc hamiltonianul pentru bisection
+
+# bisection hamiltonian: energy = cut + A * (sum of z)^2, the penalty couples every pair of qubits
 def bisection_hamiltonian(graph, A):
     n = graph.number_of_nodes()
     terms = []
 
-    # for-ul peste toate muchiile
     for edge in graph.edges():
         i, j = edge[0], edge[1]
         terms.append(("I", [0], 0.5))
         terms.append(("ZZ", [i, j], -0.5))
 
-    # penalizarea
     terms.append(("I", [0], A*n))
 
-    # for-ul peste perechi (termenii ZiZj ai penalizarii)
     for i in range(0, n-1):
         for j in range(i+1, n):
             terms.append(("ZZ", [i, j], 2*A))
@@ -59,7 +60,8 @@ def bisection_hamiltonian(graph, A):
     H = SparsePauliOp.from_sparse_list(terms, num_qubits=n).simplify()
     return H
 
-# determin matricea diagonala pt hamiltonian + validez valorile
+
+# checks that the diagonal equals cut + penalty for every bitstring, unbalanced ones included
 def check_bisection_hamiltonian(graph):
     A = generate_penalty_A(graph)
     H = bisection_hamiltonian(graph, A)
@@ -75,6 +77,8 @@ def check_bisection_hamiltonian(graph):
 
         assert abs(diagonal[i] - expected) < TOLERANCE, "mismatch for bitstring " + bitstring + ": energy " + str(diagonal[i]) + ", expected " + str(expected)
 
+
+# true if every bitstring in the list splits the nodes half and half
 def check_balanced_bitstring(bitstrings, n):
     for bitstring in bitstrings:
         zeros = bitstring.count("0")
@@ -83,8 +87,9 @@ def check_balanced_bitstring(bitstrings, n):
             return False
 
     return True
-        
 
+
+# lowest energy of the bisection hamiltonian and all bitstrings that reach it
 def bisection_ground_states(graph, A):
     H_b = bisection_hamiltonian(graph, A)
     diagonal = H_b.to_matrix(sparse=True).diagonal().real
@@ -103,6 +108,7 @@ def bisection_ground_states(graph, A):
     return min_energy, ground_states
 
 
+# the ground states must be exactly the optimal bisections from brute force, all balanced
 def check_bisection_ground_states(graph):
     A = generate_penalty_A(graph)
     n = graph.number_of_nodes()
@@ -114,8 +120,7 @@ def check_bisection_ground_states(graph):
     assert check_balanced_bitstring(ground_states, n), "some ground state is not balanced"
 
 
-
-# numar termenii ZZ din hamiltonian
+# number of zz terms, i.e. how many two-qubit interactions the circuit will need
 def count_zz_terms(H):
     count = 0
     for term in H.to_sparse_list():

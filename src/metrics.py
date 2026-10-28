@@ -3,15 +3,12 @@ from src.classical import max_cut_bruteforce, bisection_bruteforce
 from src.qaoa import qaoa_metrics
 from src.hardware import counts_to_probabilities
 import numpy as np
-
-
 import pandas as pd
 
+
+# normalised score: 0 = no better than random guessing, 1 = always optimal, negative = worse than random
+# nan when optimum == random mean (bisection on complete graphs); works on numbers, arrays and pandas columns
 def score(mean_cut, optimum, random_mean):
-    """Normalized score S: 0 = as good as random guessing, 1 = optimal,
-    negative = worse than random. NaN when optimum == random_mean (up to
-    rounding), e.g. bisection on complete graphs, where S is undefined.
-    Works on single numbers, numpy arrays and pandas columns."""
     denominator = random_mean - optimum
     zero = np.isclose(denominator, 0)
     with np.errstate(divide="ignore", invalid="ignore"):
@@ -23,10 +20,8 @@ def score(mean_cut, optimum, random_mean):
     return np.nan if zero else float(result)
 
 
-
+# metrics of measured counts (qpu, noisy sim or random guessing), computed exactly like on the simulator
 def metrics_from_counts(instances, name, problem, counts):
-    """Metrics of measured bitstrings (QPU or random), plus the optimum,
-    for one instance and problem."""
     # the problem: graph, optimum and all optimal bitstrings
     graph = json_to_graph(find_instance(instances, name))
     if problem == "maxcut":
@@ -41,15 +36,10 @@ def metrics_from_counts(instances, name, problem, counts):
     return metrics
 
 
-# functia de bootstrap
+# 95% bootstrap intervals for the metrics and the score of one measured circuit;
+# resampling shots = drawing counts from a multinomial, so all resamples come from one numpy call
 def bootstrap_metrics(instances, name, problem, counts, random_mean,
                       n_resamples=1000, seed=0):
-    """Point estimates and 95% bootstrap confidence intervals for the metrics
-    of measured bitstrings (QPU or random), including the score S.
-
-    Resampling the shots with replacement is the same as drawing new counts
-    from a multinomial over the unique bitstrings, so all resamples are made
-    in one numpy call and the brute force runs only once per circuit."""
     rng = np.random.default_rng(seed)
 
     # the problem: graph, optimum and all optimal bitstrings (computed once)
@@ -85,15 +75,19 @@ def bootstrap_metrics(instances, name, problem, counts, random_mean,
 
     valid_shots = W @ valid
     with np.errstate(invalid="ignore", divide="ignore"):
-        mean_cut = (W @ (cuts * valid)) / valid_shots     # mean over valid shots
+        # mean over valid shots
+        mean_cut = (W @ (cuts * valid)) / valid_shots     
     valid_fraction = valid_shots / num_shots
     p_optimal = (W @ optimal) / num_shots
-    S = score(mean_cut, optimum, random_mean)              # NaN if denominator is 0
+    # NaN if denominator is 0
+    S = score(mean_cut, optimum, random_mean)              
 
     result = {"name": name, "problem": problem, "optimum": optimum}
     for key, v in {"mean_cut": mean_cut, "valid_fraction": valid_fraction,
                    "p_optimal": p_optimal, "score": S}.items():
-        result[key] = v[0]                                  # point estimate
-        result[key + "_lo"] = np.nanpercentile(v[1:], 2.5)  # 95% CI
+        # point estimate
+        result[key] = v[0]          
+        # 95% CI                        
+        result[key + "_lo"] = np.nanpercentile(v[1:], 2.5)  
         result[key + "_hi"] = np.nanpercentile(v[1:], 97.5)
     return result
