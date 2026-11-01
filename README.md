@@ -157,4 +157,4 @@ and their results are already in `data/qpu/`.
 
 ---
 
-*Ana-Maria Ghica · 2026*
+*Ana-Maria Ghica. 2026*
